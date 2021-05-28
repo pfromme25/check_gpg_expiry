@@ -111,7 +111,6 @@ def main():
     verbose_info = {}
     closest_expiry = {}
 
-    current_time = int(time.time())
     for directory in args.dirs:
         file_list = get_file_list(directory)
         if file_list is None:
