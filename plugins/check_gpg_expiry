@@ -119,10 +119,12 @@ def main():
             continue
         for file_path in file_list:
             try:
-                output = subprocess.check_output(["/usr/bin/gpg", "--batch", "--quiet",
-                                                  "--no-keyring", "--with-colons",
-                                                  "--always-trust", "--show-keys",
-                                                  file_path], stderr=subprocess.STDOUT)
+                output = subprocess.check_output(["/usr/bin/gpg", "--dry-run",
+                                                  "--import-options", "import-show",
+                                                  "--import", "--batch", "--quiet",
+                                                  "--no-keyring", "--trust-model",
+                                                  "always", "--with-colons", file_path],
+                                                  stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 unkn_list.append(file_path)
                 err_list.append(e.output.decode().rstrip())
