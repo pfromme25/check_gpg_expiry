@@ -30,9 +30,7 @@ class State(Enum):
 def is_pgp(file):
     output = subprocess.check_output(["/usr/bin/file", "-b", "--mime-type", file])
     output = output.decode().rstrip()
-    app = "application/"
-    formats = ["pgp-keys", "x-gnupg-keyring"]
-    pgp_types = [app + x for x in formats]
+    pgp_types = ["application/pgp-keys", "application/x-gnupg-keyring"]
     if output in pgp_types:
         return True
     return False
