@@ -91,6 +91,24 @@ def check_expiry(key, warning, critical):
             state = State.WARNING
     return state
 
+def verbose_print(details):
+    hr_format = "%d-%m-%Y"
+    for uid, fields in details.items():
+        if len(details) > 1:
+            print("  {}:".format(uid))
+        print("    Algorithm: {}".format(fields[1]))
+        print("    Length: {}".format(fields[0]))
+        issue_date = int(fields[2])
+        issue_date_hr = time.strftime(hr_format, time.localtime(issue_date))
+        print("    Issue Date: {} - {}".format(issue_date, issue_date_hr))
+        expiry_date = fields[3]
+        if expiry_date:
+            expiry_date_hr = time.strftime(hr_format, time.localtime(expiry_date))
+            expiry_state = "{} - {}".format(expiry_date, expiry_date_hr)
+        else:
+            expiry_state = "None"
+        print("    Expiry Date: {}".format(expiry_state))
+
 def main():
     parser = argparse.ArgumentParser(description="Check for expiring pgp keys")
     parser.add_argument("-w", "--warning", help="Warning threshold, default "
@@ -103,7 +121,7 @@ def main():
     parser.add_argument("-s", "--sort", help="Sort by expiry date, "
                         "sorts by path otherwise", action="store_true")
     parser.add_argument("-v", "--verbose", help="Verbose output", action="store_true")
-    parser.add_argument("-e", "--expiring", help="Only show expiring keys,"
+    parser.add_argument("-e", "--expiring", help="Only show expiring keys, "
                         "requires -v/--verbose to actually do something", action="store_true")
     parser.add_argument("-i", "--ignore", help="Regular expressions separated "
                         "by space matching file paths to ignore", nargs="*")
@@ -135,12 +153,11 @@ def main():
             if match_regex(file_path, args.ignore):
                 continue
         try:
-            output = subprocess.check_output(["/usr/bin/gpg", "--dry-run",
-                                              "--import-options", "import-show",
-                                              "--import", "--batch", "--quiet",
-                                              "--no-keyring", "--trust-model",
-                                              "always", "--with-colons", file_path],
-                                              stderr=subprocess.STDOUT)
+            command = ["/usr/bin/gpg", "--dry-run", "--import-options",
+                       "import-show", "--import", "--batch", "--quiet",
+                       "--no-keyring", "--trust-model", "always",
+                       "--with-colons", file_path]
+            output = subprocess.check_output(command, stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             unkn_list.append(file_path)
             err_list.append(e.output.decode().rstrip())
@@ -183,28 +200,16 @@ def main():
     print(output)
 
     if args.verbose:
-        hr_format = "%d-%m-%Y"
         sorted_keys = sorted(verbose_info.keys(), key=lambda file_path:
                             (closest_expiry[file_path], file_path)
                             if args.sort else file_path)
         for file_path in sorted_keys:
-            if file_path in (crit_list + warn_list + unkn_list) or not args.expiring:
+            cat_tupl = (*crit_list, *warn_list, *unkn_list)
+            if file_path in cat_tupl or not args.expiring:
                 print()
                 print("{}:".format(file_path))
-                for key in verbose_info[file_path]:
-                    if len(verbose_info[file_path]) > 1:
-                        print("  {}:".format(key))
-                    print("    Algorithm: {}".format(verbose_info[file_path][key][1]))
-                    print("    Length: {}".format(verbose_info[file_path][key][0]))
-                    issue_date = int(verbose_info[file_path][key][2])
-                    issue_date_hr = time.strftime(hr_format, time.localtime(issue_date))
-                    print("    Issue Date: {} - {}".format(issue_date, issue_date_hr))
-                    expiry_date = verbose_info[file_path][key][3]
-                    if expiry_date:
-                        expiry_date_hr = time.strftime(hr_format, time.localtime(expiry_date))
-                        print("    Expiry Date: {} - {}".format(expiry_date, expiry_date_hr))
-                    else:
-                        print("    Expiry Date: None")
+                verbose_print(verbose_info[file_path])
+
     sys.exit(state.value)
 
 if __name__ == "__main__":
